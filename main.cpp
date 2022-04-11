@@ -4,5 +4,6 @@
 
 int main(int argc, const char* argv[]) {
 	Icons i;
-	i.test();
+	std::cout << i.queryIcon("gparted", 48).getPath() << '\n';
+	std::cout << i.queryIcon("mpv", 64).getPath() << '\n';
 }

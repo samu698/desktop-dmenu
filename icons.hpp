@@ -30,20 +30,19 @@ struct iteratorHelper {
 };
 
 class Icon {
-	std::string id;
-	std::unordered_map<int, fs::path> sizes;
+	std::string name;
+	int size;
+	fs::path path;
 public:
-	Icon(std::string id) : id(id) {}
+	Icon(std::string_view name, int size) : name(name), size(size) {}
+	Icon(std::string_view name, int size, fs::path path) : name(name), size(size), path(path) {}
 
-	void addSize(int size, fs::path icon) {
-		if (sizes.count(size)== 0)
-			sizes[size] = icon;
-	}
+	std::string_view getName() const { return name; }
+	int getSize() const { return size; }
+	const fs::path& getPath() const { return path; }
+	void setPath(const fs::path& newPath) { path = newPath; }
 
-	std::string_view getId() const { return id; }
-
-	bool operator==(const Icon& other) const { return id == other.id; }
-	bool operator!=(const Icon& other) const { return !(operator==(other)); }
+	bool exists() const { return !path.empty(); }
 };
 
 
@@ -115,11 +114,6 @@ public:
 };
 
 namespace std {
-template<> struct hash<Icon> {
-	size_t operator()(const Icon& i) const {
-		return hash<string_view>{}(i.getId());
-	}
-};
 template<> struct hash<IconTheme> {
 	size_t operator()(const IconTheme& i) const {
 		return hash<string_view>{}(i.getId());
@@ -128,6 +122,7 @@ template<> struct hash<IconTheme> {
 }
 
 class Icons {
+	std::vector<fs::path> iconPaths;
 	std::unordered_set<IconTheme> themes;
 
 	std::string getEnviroment(std::string_view name) {
@@ -169,10 +164,20 @@ class Icons {
 		return themes;
 	}
 public:
-	Icons() : themes(getThemes(getIconPaths())) {}
+	Icons() : iconPaths(getIconPaths()), themes(getThemes(iconPaths)) {}
 
-	void test() {
-		auto hicolor = themes.find(IconTheme("hicolor"));
-		std::cout << hicolor->queryIcon("gparted", 48, getIconPaths()) << '\n';
+	Icon queryIcon(std::string_view name, int size) {
+		Icon icon(name, size);
+
+		/* query current theme */
+
+		auto hicolorTheme = themes.find(IconTheme("hicolor"));
+		if (hicolorTheme != themes.end())
+			icon.setPath(hicolorTheme->queryIcon(name, size, iconPaths));
+
+		if (!icon.exists())
+			/* query /usr/share/pixmaps/ folder */;
+
+		return icon;
 	}
 };
