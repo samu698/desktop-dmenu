@@ -17,7 +17,7 @@
 namespace fs = std::filesystem;
 using namespace std::literals;
 
-struct desktopEntry {
+class desktopEntry {
 	std::string id;
 	fs::path path;
 
@@ -49,6 +49,13 @@ public:
 		}
 	}
 
+	std::string_view getId() const { return id; }
+	const fs::path& getPath() const { return path; }
+	std::string_view getName() const { return name; }
+	std::string_view getExec() const { return exec; }
+	std::string_view getIconId() const { return icon; }
+	bool needsTerminal() const { return useTerminal; }
+
 	bool operator==(const desktopEntry& other) const { return id == other.id; }
 	bool operator!=(const desktopEntry& other) const { return !(operator==(other)); }
 };
@@ -56,7 +63,7 @@ public:
 namespace std {
 template<> struct hash<desktopEntry> {
 	size_t operator()(const desktopEntry& d) const {
-		return hash<string>{}(d.id);
+		return hash<string_view>{}(d.getId());
 	}
 };
 }
@@ -72,9 +79,9 @@ class desktopEntries {
 		std::string data_dirs = getEnviroment("XDG_DATA_DIRS"sv);
 		if (!data_dirs.empty()) {
 			std::vector<fs::path> out;
-			auto pathbeg = begin(data_dirs);
-			auto pathend = begin(data_dirs);
-			while ((pathend = std::find(pathend, end(data_dirs), ':')) != end(data_dirs)) {
+			auto pathbeg = std::begin(data_dirs);
+			auto pathend = std::begin(data_dirs);
+			while ((pathend = std::find(pathend, std::end(data_dirs), ':')) != std::end(data_dirs)) {
 				out.emplace_back(pathbeg, pathend) /= "applications";
 				pathbeg = ++pathend;
 			}
@@ -99,13 +106,6 @@ class desktopEntries {
 	}
 public:
 	desktopEntries() : entries(getDesktopEntries(getEntryPaths())) {}
-	void getInfo() {
-		for (const auto& entry : entries) {
-			std::cout << entry.id << '\n';
-			std::cout << "- Name: " << entry.name << '\n';
-			std::cout << "- Exec: " << entry.exec << '\n';
-			std::cout << "- Icon: " << entry.icon << '\n';
-			std::cout << "- Terminal: " << std::boolalpha << entry.useTerminal << "\n\n";
-		}
-	}
+	const auto begin() { return std::begin(entries); }
+	const auto end()  { return  std::end(entries); }
 };
