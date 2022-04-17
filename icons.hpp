@@ -144,7 +144,6 @@ class Icons {
 			out.emplace_back("/usr/local/share/icons/"sv);
 			out.emplace_back("/usr/share/icons/"sv);
 		}
-		out.emplace_back("/usr/share/pixmaps/"sv);
 		return out;
 	}
 
@@ -166,18 +165,24 @@ class Icons {
 public:
 	Icons() : iconPaths(getIconPaths()), themes(getThemes(iconPaths)) {}
 
-	Icon queryIcon(std::string_view name, int size) {
+	Icon queryIcon(std::string_view name, int size, const std::string& preferredThemeId = "") {
 		Icon icon(name, size);
 
 		/* query current theme */
+		if (!preferredThemeId.empty()) {
+			auto preferredTheme = themes.find(IconTheme(preferredThemeId));
+			if (preferredTheme != themes.end())
+				icon.setPath(preferredTheme->queryIcon(name, size, iconPaths));
+			if (icon.exists()) return icon;
+		}
 
 		auto hicolorTheme = themes.find(IconTheme("hicolor"));
 		if (hicolorTheme != themes.end())
 			icon.setPath(hicolorTheme->queryIcon(name, size, iconPaths));
+		if (icon.exists()) return icon;
 
-		if (!icon.exists())
-			/* query /usr/share/pixmaps/ folder */;
+		/* TODO: query /usr/share/pixmaps/ folder */;
 
-		return icon;
+		return Icon(name, size);
 	}
 };
