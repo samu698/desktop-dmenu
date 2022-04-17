@@ -100,7 +100,10 @@ class iniFile {
 			}
 			// error
 		}
-		
+
+		if (section.entries.size() != 0)
+			sections.push_back(section);
+
 		if (sections[0].entries.size() == 0)
 			sections.erase(sections.begin());
 
