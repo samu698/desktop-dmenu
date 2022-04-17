@@ -17,7 +17,7 @@
 namespace fs = std::filesystem;
 using namespace std::literals;
 
-class desktopEntry {
+class DesktopEntry {
 	std::string id;
 	fs::path path;
 
@@ -37,8 +37,8 @@ class desktopEntry {
 		return id;
 	}
 public:
-	desktopEntry(std::string_view id) : id(id) {}
-	desktopEntry(const fs::path& base, const fs::path& path) : path(path), id(pathToId(base, path)) {
+	DesktopEntry(std::string_view id) : id(id) {}
+	DesktopEntry(const fs::path& base, const fs::path& path) : path(path), id(pathToId(base, path)) {
 		iniFile desktopFile(path.native());
 		auto section = std::find(desktopFile.begin(), desktopFile.end(), "Desktop Entry"sv);
 		for (const auto& [ ename, value ] : section->entries) {
@@ -56,20 +56,20 @@ public:
 	std::string_view getIconId() const { return icon; }
 	bool needsTerminal() const { return useTerminal; }
 
-	bool operator==(const desktopEntry& other) const { return id == other.id; }
-	bool operator!=(const desktopEntry& other) const { return !(operator==(other)); }
+	bool operator==(const DesktopEntry& other) const { return id == other.id; }
+	bool operator!=(const DesktopEntry& other) const { return !(operator==(other)); }
 };
 
 namespace std {
-template<> struct hash<desktopEntry> {
-	size_t operator()(const desktopEntry& d) const {
+template<> struct hash<DesktopEntry> {
+	size_t operator()(const DesktopEntry& d) const {
 		return hash<string_view>{}(d.getId());
 	}
 };
 }
 
-class desktopEntries {
-	std::unordered_set<desktopEntry> entries;
+class DesktopEntries {
+	std::unordered_set<DesktopEntry> entries;
 
 	std::string getEnviroment(std::string_view name) {
 		char* val = getenv(name.data());
@@ -90,14 +90,14 @@ class desktopEntries {
 		return { "/usr/local/share/applications", "/usr/share/applications" };
 	}
 
-	std::unordered_set<desktopEntry> getDesktopEntries(const std::vector<fs::path> entryPaths) {
-		std::unordered_set<desktopEntry> out;
+	std::unordered_set<DesktopEntry> getDesktopEntries(const std::vector<fs::path> entryPaths) {
+		std::unordered_set<DesktopEntry> out;
 		for (const auto& entryDirectory : entryPaths) {
 			auto diriter = fs::recursive_directory_iterator(entryDirectory);
 			for (const auto& file : diriter) {
 				const auto path = file.path();
 				if (!file.is_regular_file() || path.extension() != ".desktop") continue;
-				desktopEntry entry(entryDirectory, path);
+				DesktopEntry entry(entryDirectory, path);
 				if (out.count(entry) == 0) 
 					out.emplace(std::move(entry));
 			}
@@ -105,7 +105,7 @@ class desktopEntries {
 		return out;
 	}
 public:
-	desktopEntries() : entries(getDesktopEntries(getEntryPaths())) {}
+	DesktopEntries() : entries(getDesktopEntries(getEntryPaths())) {}
 	const auto begin() { return std::begin(entries); }
 	const auto end()  { return  std::end(entries); }
 };
