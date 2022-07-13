@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "iniParse.hpp"
+#include "pngReader.hpp"
 
 // https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html
 // https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
@@ -33,6 +34,26 @@ class Icon {
 	std::string name;
 	int size;
 	fs::path path;
+
+	std::string escapeData(const std::vector<uint8_t>& png) const {
+		std::string out;
+		out.reserve(png.size());
+		for (auto b : png)
+			switch (b) {
+			case '\n':
+				out += "\\n";
+				break;
+			case '\\':
+				out += "\\\\";
+				break;
+			case '\0':
+				out += "\\0";
+				break;
+			default:
+				out += b;
+			}
+		return out;
+	}
 public:
 	Icon(std::string_view name, int size) : name(name), size(size) {}
 	Icon(std::string_view name, int size, fs::path path) : name(name), size(size), path(path) {}
@@ -43,6 +64,10 @@ public:
 	void setPath(const fs::path& newPath) { path = newPath; }
 
 	bool exists() const { return !path.empty(); }
+	std::string dmenuString() const {
+		PngReader png(path);
+		return escapeData(png.getPixels());
+	}
 };
 
 
@@ -141,8 +166,11 @@ class Icons {
 				pathbeg = ++pathend;
 			}
 		} else {
+			fs::path home = getEnviroment("HOME"sv);
 			out.emplace_back("/usr/local/share/icons/"sv);
 			out.emplace_back("/usr/share/icons/"sv);
+			out.emplace_back(home / ".local/share/icons");
+			out.emplace_back(home / ".data/icons");
 		}
 		return out;
 	}
@@ -165,7 +193,7 @@ class Icons {
 public:
 	Icons() : iconPaths(getIconPaths()), themes(getThemes(iconPaths)) {}
 
-	Icon queryIcon(std::string_view name, int size, const std::string& preferredThemeId = "") {
+	std::optional<Icon> queryIcon(std::string_view name, int size, const std::string& preferredThemeId = "") {
 		Icon icon(name, size);
 
 		/* query current theme */
@@ -183,6 +211,6 @@ public:
 
 		/* TODO: query /usr/share/pixmaps/ folder */;
 
-		return Icon(name, size);
+		return std::nullopt;
 	}
 };

@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-std=c++17 -ggdb
-LDFLAGS=
+LDFLAGS=-lpng
 
 MAKEFILE=Makefile
 CLANGDINFO=compile_commands.json

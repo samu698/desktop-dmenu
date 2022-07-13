@@ -20,7 +20,7 @@ struct iniEntry {
 	}
 	void trim() {
 		name.substr(0, name.find_last_not_of("\t\n\v\f\r ") + 1);
-		value.substr(value.find_first_not_of("\t\n\v\f\r "));
+		if (!value.empty()) value.substr(value.find_first_not_of("\t\n\v\f\r "));
 	}
 
 	bool operator==(const iniEntry& other) const { return name == other.name; }
