@@ -2,7 +2,7 @@
 #include <stdexcept>
 #include "desktopEntries.hpp"
 #include "icons.hpp"
-#include "execWrapper.hpp"
+#include "process.hpp"
 #include "config.h"
 
 DesktopEntry askDesktopEntry(DesktopEntries& entries, Icons& icons) {

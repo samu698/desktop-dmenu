@@ -1,45 +1,54 @@
-CC=g++
-CFLAGS=-std=c++17 -ggdb
-LDFLAGS=-lpng
+CC:=g++
+SRCEXT:=cpp
+CFLAGS:=-std=c++17 -O3
+LDFLAGS:=-lpng
 
-MAKEFILE=Makefile
-CLANGDINFO=compile_commands.json
+BIN:=desktop-dmenu
+SRC:=.
+OBJ:=obj
+MAKEFILE:=Makefile
+CLANGDINFO:=compile_commands.json
+DEPDIR:=$(OBJ)/deps
 
-SRC=.
-SRCS=$(wildcard $(SRC)/*.cpp)
+SRCS:=$(wildcard $(SRC)/*.$(SRCEXT))
+DEPFLAGS=-MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 
-OBJ=obj
-OBJS=$(patsubst $(SRC)/%.cpp, $(OBJ)/%.o, $(SRCS))
+make:: $(CLANGDINFO) $(BIN)
 
-BIN=desktop-dmenu
-
-make: $(CLANGDINFO) $(BIN)
-
-run: $(BIN)
+run:: $(CLANGDINFO) $(BIN)
 	./$(BIN)
 
-clean:
+clean::
 	rm -r $(OBJ) || true
+	rm -r $(DEPDIR) || true
 	rm $(BIN) || true
 	rm $(CLANGDINFO) || true
 
-install: make
+install:: $(BIN)
 	cp $(BIN) /usr/local/bin/$(BIN)
 
 # Rules for compilation
-
+OBJS:=$(SRCS:$(SRC)/%.$(SRCEXT)=$(OBJ)/%.o)
 $(BIN): $(OBJS) $(OBJ)
 	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 
-$(OBJ)/%.o: $(SRC)/%.cpp $(OBJ)
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJ)/%.o: $(SRC)/%.$(SRCEXT) $(OBJ) $(DEPDIR)/%.d | $(DEPDIR)
+	$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
 
+# Directories
 $(OBJ):
 	mkdir -p $@
 
+$(DEPDIR):
+	mkdir -p $@
 
-# Create compile commands
-makebin: $(BIN)
+# Dependencies (include files)
+DEPFILES:=$(SRCS:$(SRC)/%.$(SRCEXT)=$(DEPDIR)/%.d)
+$(DEPFILES):
+include $(wildcard $(DEPFILES))
+
+# Create compile commands using bear
+makebin:: $(BIN)
 
 $(CLANGDINFO): $(MAKEFILE)
 	make clean
