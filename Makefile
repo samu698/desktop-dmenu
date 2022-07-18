@@ -29,10 +29,10 @@ install:: $(BIN)
 
 # Rules for compilation
 OBJS:=$(SRCS:$(SRC)/%.$(SRCEXT)=$(OBJ)/%.o)
-$(BIN): $(OBJS) $(OBJ)
+$(BIN): $(OBJS) | $(OBJ)
 	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 
-$(OBJ)/%.o: $(SRC)/%.$(SRCEXT) $(OBJ) $(DEPDIR)/%.d | $(DEPDIR)
+$(OBJ)/%.o: $(SRC)/%.$(SRCEXT) $(DEPDIR)/%.d | $(OBJ) $(DEPDIR)
 	$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
 
 # Directories
