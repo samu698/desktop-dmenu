@@ -1,9 +1,11 @@
 #include "icons.hpp"
 #include <algorithm>
+#include <iterator>
 #include <optional>
 
 #include "iniParse.hpp"
 #include "pngReader.hpp"
+#include "utils.hpp"
 
 // https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html
 // https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
@@ -31,23 +33,24 @@ std::string Icon::escapeData(const std::vector<uint8_t>& pixels) const {
 		}
 	return out;
 }
-Icon::Icon(std::string_view name, int size) : name(name), size(size) {}
-Icon::Icon(std::string_view name, int size, fs::path path) : name(name), size(size), path(path) {}
+Icon::Icon(std::string_view name) : name(name) {}
+Icon::Icon(std::string_view name, uint32_t size, fs::path path) : name(name), size(size), path(path) {}
 std::string_view Icon::getName() const { return name; }
-int Icon::getSize() const { return size; }
+uint32_t Icon::getSize() const { return size; }
 const fs::path& Icon::getPath() const { return path; }
-void Icon::setPath(const fs::path& newPath) { path = newPath; }
-bool Icon::exists() const { return !path.empty(); }
 std::string Icon::dmenuString() const {
 	PngReader png(path);
-	return escapeData(png.getPixels());
+	return escapeData(png.getScaledPixels(16, 16));
 }
+bool Icon::operator==(const Icon& other) const { return name == other.name; }
+bool Icon::operator!=(const Icon& other) const { return !operator==(other); }
 
 // ==========================================
 // IconTheme
 // ==========================================
 
-void IconTheme::readIndex(const std::vector<fs::path>& iconPaths) const {
+void IconTheme::findIcons(const std::vector<fs::path>& iconPaths) const {
+	std::vector<std::pair<int, fs::path>> relativePaths;
 	for (const auto& iconPath : iconPaths) {
 		fs::path indexPath = iconPath / id / "index.theme";
 		if (!fs::exists(indexPath)) continue;
@@ -76,31 +79,33 @@ void IconTheme::readIndex(const std::vector<fs::path>& iconPaths) const {
 				}
 			}
 			if (!validFolder || size == 0) continue;
-			iconFolders.emplace(size, section);
+			relativePaths.emplace_back(size, section);
+		}
+	}
+	for (const auto& iconPath : iconPaths) {
+		for (const auto& [size, relativePath] : relativePaths) {
+			fs::path p = iconPath / id / relativePath;
+			if (!fs::exists(p)) continue;
+			for (const auto& iconFile : fs::directory_iterator(p)) {
+				if (!iconFile.is_regular_file()) continue;
+
+				const auto& iconPath = iconFile.path();
+				if (iconPath.extension() != ".png") continue;
+				icons.emplace(iconPath.stem().native(), size, iconPath);
+			}
 		}
 	}
 }
 IconTheme::IconTheme(std::string id) : id(id) {}
 void IconTheme::addIndex(const fs::path& index) {}
 std::string_view IconTheme::getId() const { return id; }
-fs::path IconTheme::queryIcon(std::string_view name, int size, const std::vector<fs::path>& iconPaths) const {
-	if (iconFolders.empty()) readIndex(iconPaths);
-	for (const auto& iconPath : iconPaths) {
-		pairIterator folderRange = iconFolders.equal_range(size);
-		for (const auto& [ _, relativeIconFolder ] : folderRange) {
-			fs::path iconFolder = iconPath / id / relativeIconFolder;
-			if (!fs::exists(iconFolder)) continue;
-			auto diriter = fs::directory_iterator(iconFolder);
-			for (const auto& iconFile : diriter) {
-				if (!iconFile.is_regular_file()) continue;
-
-				const auto& iconPath = iconFile.path();
-				if (iconPath.extension() != ".png") continue;
-				if (iconPath.stem() == name) return iconPath;
-			}
-		}
-	}
-	return "";
+std::vector<Icon> IconTheme::queryIcons(std::string_view name, const std::vector<fs::path>& iconPaths) const {
+	if (icons.empty()) findIcons(iconPaths);
+	std::vector<Icon> found;
+	const auto& [ beg, end ] = icons.equal_range(Icon(name));
+	if (beg != ::end(icons))
+		std::copy(beg, end, std::back_inserter(found));
+	return found;
 }
 bool IconTheme::operator==(const IconTheme& other) const { return id == other.id; }
 bool IconTheme::operator!=(const IconTheme& other) const { return !(operator==(other)); }
@@ -143,24 +148,45 @@ std::unordered_set<IconTheme> Icons::getThemes(const std::vector<fs::path>& icon
 	}
 	return themes;
 }
-Icons::Icons() : iconPaths(getIconPaths()), themes(getThemes(iconPaths)) {}
-std::optional<Icon> Icons::queryIcon(std::string_view name, int size, const std::string& preferredThemeId) {
-	Icon icon(name, size);
 
-	/* query current theme */
+Icons::Icons() : iconPaths(getIconPaths()), themes(getThemes(iconPaths)) {}
+std::vector<Icon> Icons::queryIcons(std::string_view name, std::string_view preferredThemeId) {
+	std::vector<Icon> icons;
 	if (!preferredThemeId.empty()) {
-		auto preferredTheme = themes.find(IconTheme(preferredThemeId));
+		auto preferredTheme = themes.find(IconTheme(std::string(preferredThemeId)));
 		if (preferredTheme != themes.end())
-			icon.setPath(preferredTheme->queryIcon(name, size, iconPaths));
-		if (icon.exists()) return icon;
+			icons = preferredTheme->queryIcons(name, iconPaths);
+		if (!icons.empty()) return icons;
 	}
 
 	auto hicolorTheme = themes.find(IconTheme("hicolor"));
 	if (hicolorTheme != themes.end())
-		icon.setPath(hicolorTheme->queryIcon(name, size, iconPaths));
-	if (icon.exists()) return icon;
+		icons = hicolorTheme->queryIcons(name, iconPaths);
 
 	/* TODO: query /usr/share/pixmaps/ folder */;
 
-	return std::nullopt;
+	return icons;
+}
+
+// This function scores the icon sizes, based on which is better to be resized to the desired size.
+// The factors that this function considers are: (in order of imporance)
+// 1. Is the icon bigger/smaller than the desired size (downscaling is better)
+// 2. Is the icon a multiple of the desired size
+// 3. How big is the difference between the two sizes
+int scoreSize(uint32_t desired, uint32_t size) {
+	if (size == desired) return 1000000;
+	else if (size % desired == 0) return 1000000 - size / desired;
+	else if (desired % size == 0) return -(desired / size);
+	else if (size > desired) return size - desired;
+	else return -1000000 + desired - size;
+}
+
+std::optional<Icon> Icons::queryIconClosestSize(std::string_view name, uint32_t size, std::string_view preferredThemeId) {
+	auto icons = queryIcons(name, preferredThemeId);
+	if (icons.empty()) return std::nullopt;
+	std::vector<int> scores(icons.size());
+	std::transform(begin(icons), end(icons), begin(scores), [size](const auto& e) { return scoreSize(size, e.getSize()); });
+	auto it = std::max_element(begin(scores), end(scores));
+
+	return icons[std::distance(begin(scores), it)];
 }

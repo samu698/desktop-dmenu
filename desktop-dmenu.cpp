@@ -9,7 +9,7 @@ DesktopEntry askDesktopEntry(DesktopEntries& entries, Icons& icons) {
 	Process dmenu("dmenu", DMENU_ARGS);
 	dmenu.run();
 	for (const auto& entry : entries) {
-		auto icon = icons.queryIcon(entry.getIconId(), 16);
+		auto icon = icons.queryIconClosestSize(entry.getIconId(), 16);
 		dmenu.stream() << entry.getName();
 		if (icon) {
 			dmenu.stream().write("\0", 1);
