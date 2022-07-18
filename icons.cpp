@@ -1,15 +1,6 @@
 #include "icons.hpp"
-#include <iostream>
-#include <filesystem>
 #include <algorithm>
-#include <iterator>
 #include <optional>
-#include <string>
-#include <string_view>
-#include <vector>
-#include <unordered_set>
-#include <unordered_map>
-#include <utility>
 
 #include "iniParse.hpp"
 #include "pngReader.hpp"
@@ -17,25 +8,14 @@
 // https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html
 // https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
 
-using namespace std::literals;
-
-template<typename Iter>
-struct iteratorHelper {
-	Iter ibegin, iend;
-	iteratorHelper(Iter begin, Iter end) : ibegin(begin), iend(end) {}
-	iteratorHelper(std::pair<Iter, Iter> iters) : ibegin(iters.first), iend(iters.second) {}
-	Iter begin() { return ibegin; }
-	Iter end() { return iend; }
-};
-
 // ==========================================
 // Icon
 // ==========================================
 
-std::string Icon::escapeData(const std::vector<uint8_t>& png) const {
+std::string Icon::escapeData(const std::vector<uint8_t>& pixels) const {
 	std::string out;
-	out.reserve(png.size());
-	for (auto b : png)
+	out.reserve(pixels.size());
+	for (auto b : pixels)
 		switch (b) {
 		case '\n':
 			out += "\\n";
@@ -106,7 +86,7 @@ std::string_view IconTheme::getId() const { return id; }
 fs::path IconTheme::queryIcon(std::string_view name, int size, const std::vector<fs::path>& iconPaths) const {
 	if (iconFolders.empty()) readIndex(iconPaths);
 	for (const auto& iconPath : iconPaths) {
-		iteratorHelper folderRange = iconFolders.equal_range(size);
+		pairIterator folderRange = iconFolders.equal_range(size);
 		for (const auto& [ _, relativeIconFolder ] : folderRange) {
 			fs::path iconFolder = iconPath / id / relativeIconFolder;
 			if (!fs::exists(iconFolder)) continue;
@@ -129,10 +109,6 @@ bool IconTheme::operator!=(const IconTheme& other) const { return !(operator==(o
 // Icons
 // ==========================================
 
-std::string Icons::getEnviroment(std::string_view name) {
-	char* val = getenv(name.data());
-	return val ? val : ""s;
-}
 std::vector<fs::path> Icons::getIconPaths() {
 	std::vector<fs::path> out = { getEnviroment("HOME"sv) + "/.icons" };
 	std::string data_dirs = getEnviroment("XDG_DATA_DIRS"sv);

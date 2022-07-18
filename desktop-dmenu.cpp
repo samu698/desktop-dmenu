@@ -3,7 +3,7 @@
 #include "desktopEntries.hpp"
 #include "icons.hpp"
 #include "process.hpp"
-#include "config.h"
+#include "utils.hpp"
 
 DesktopEntry askDesktopEntry(DesktopEntries& entries, Icons& icons) {
 	Process dmenu("dmenu", DMENU_ARGS);
@@ -17,17 +17,13 @@ DesktopEntry askDesktopEntry(DesktopEntries& entries, Icons& icons) {
 		}
 		dmenu.stream() << '\n';
 	}
-	dmenu.stream().sendEof();
+	dmenu.stream().sendEOF();
 	std::string output;
 	std::getline(dmenu.stream(), output);
-	dmenu.join();
 
-	int index;
-	try {
-		index = std::stoi(output);
-	} catch (std::invalid_argument e) {
-		exit(1);
-	}
+	if (dmenu.join() != 0) exit(1);
+
+	int index = std::stoi(output);
 	return entries[index];
 }
 
@@ -37,5 +33,10 @@ int main(int argc, const char* argv[]) {
 
 	DesktopEntry e = askDesktopEntry(entries, icons);
 
-	e.run();
+	std::string parsedExec;
+	auto [ cmd, args ] = e.getCommand(parsedExec);
+	args.push_back(parsedExec);
+	Process p(cmd, args);
+	p.exec();
+	throw std::runtime_error("Cannot exec program");
 }

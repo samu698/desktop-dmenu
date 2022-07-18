@@ -1,10 +1,8 @@
 #pragma once
 
-#include <string>
-#include <string_view>
-#include <vector>
-#include <filesystem>
 #include <iterator>
+#include <utility>
+#include "utils.hpp"
 
 // https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
 
@@ -31,7 +29,7 @@ public:
 	bool needsTerminal() const;
 	bool isHidden() const;
 
-	void run();
+	std::pair<std::string_view, std::vector<std::string_view>> const getCommand(std::string& parsedExec);
 
 	bool operator==(const DesktopEntry& other) const;
 	bool operator!=(const DesktopEntry& other) const;

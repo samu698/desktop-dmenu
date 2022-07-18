@@ -1,16 +1,10 @@
 #pragma once
 
-#include <cstdint>
-#include <filesystem>
-#include <vector>
-#include <unordered_map>
-#include <unordered_set>
 #include <optional>
+#include "utils.hpp"
 
 // https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html
 // https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
-
-namespace fs = std::filesystem;
 
 class Icon {
 	std::string name;
@@ -59,8 +53,6 @@ template<> struct hash<IconTheme> {
 class Icons {
 	std::vector<fs::path> iconPaths;
 	std::unordered_set<IconTheme> themes;
-
-	std::string getEnviroment(std::string_view name);
 
 	std::vector<fs::path> getIconPaths();
 	std::unordered_set<IconTheme> getThemes(const std::vector<fs::path>& iconPaths);

@@ -1,15 +1,13 @@
 #include "process.hpp"
 #include <stdexcept>
-#include <string>
-#include <vector>
-#include <array>
 #include <streambuf>
-#include <iostream>
 #include <initializer_list>
 
 #include <sys/wait.h>
 #include <cstring>
 #include <unistd.h>
+
+#include "utils.hpp"
 
 namespace detail {
 
@@ -26,7 +24,7 @@ iopipes::PipeFds::~PipeFds() { close(); }
 // ==========================================
 
 iopipes::iopipes() : std::iostream(this) { setg(buffer, buffer, buffer); }
-void iopipes::sendEof() { opipe.close(); }
+void iopipes::sendEOF() { opipe.close(); }
 void iopipes::close() { ipipe.close(); opipe.close(); }
 void iopipes::closeUnneded() { ::close(ipipe.writeEnd); ::close(opipe.readEnd); }
 void iopipes::dup() {
@@ -68,14 +66,10 @@ const char** StringList::carray() { return cstrings.data(); }
 // Process
 // ==========================================
 
-std::vector<std::string_view> Process::prepend(std::vector<std::string_view> vec, std::string_view val) {
-	vec.insert(std::begin(vec), val);
-	return vec;
-}
 Process::Process(std::string_view file, std::string_view arg0, std::vector<std::string_view> args) : 
-	file(file), argv(prepend(args, std::string(arg0))) {}
+	file(file), argv(prepend(args, arg0)) {}
 Process::Process(std::string_view file, std::vector<std::string_view> args) : 
-	file(file), argv(prepend(args, std::string(file))) {}
+	file(file), argv(prepend(args, file)) {}
 void Process::run() {
 	int exitCode;
 	pid = fork();

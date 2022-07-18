@@ -1,23 +1,14 @@
 #include "desktopEntries.hpp"
-#include <iostream>
-#include <filesystem>
 #include <algorithm>
 #include <iterator>
 #include <optional>
-#include <string>
-#include <string_view>
-#include <vector>
-#include <unordered_set>
 #include <iterator>
+#include <utility>
 
 #include "iniParse.hpp"
-#include "process.hpp"
-#include "config.h"
+#include "utils.hpp"
 
 // https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
-
-namespace fs = std::filesystem;
-using namespace std::literals;
 
 // ==========================================
 // DesktopEntry
@@ -26,8 +17,8 @@ using namespace std::literals;
 std::string DesktopEntry::pathToId(const fs::path& base, const fs::path& path) {
 	fs::path relative = path.lexically_relative(base);
 	std::string id;
-	auto length = std::distance(relative.begin(), relative.end());
-	auto last = std::for_each_n(relative.begin(), length - 1, [&id](const auto& p) {
+	auto length = std::distance(::begin(relative), ::end(relative));
+	auto last = std::for_each_n(::begin(relative), length - 1, [&id](const auto& p) {
 		id += p.native() + '-';
 	});
 	id += *last;
@@ -36,7 +27,7 @@ std::string DesktopEntry::pathToId(const fs::path& base, const fs::path& path) {
 DesktopEntry::DesktopEntry(std::string_view id) : id(id) {}
 DesktopEntry::DesktopEntry(const fs::path& base, const fs::path& path) : path(path), id(pathToId(base, path)) {
 	iniFile desktopFile(path.native());
-	auto section = std::find(desktopFile.begin(), desktopFile.end(), "Desktop Entry"sv);
+	auto section = std::find(::begin(desktopFile), ::end(desktopFile), "Desktop Entry"sv);
 	for (const auto& [ ename, value ] : section->entries) {
 		if (ename == "Name") name = value;
 		else if (ename == "Icon") icon = value;
@@ -55,8 +46,8 @@ std::string_view DesktopEntry::getIconId() const { return icon; }
 bool DesktopEntry::needsTerminal() const { return useTerminal; }
 bool DesktopEntry::isHidden() const { return hidden; }
 
-void DesktopEntry::run() {
-	std::string parsedExec;
+std::pair<std::string_view, std::vector<std::string_view>> const DesktopEntry::getCommand(std::string& parsedExec) {
+	parsedExec.clear();
 	bool escape = false;
 	for (char c : exec) {
 		if (!escape) {
@@ -73,8 +64,7 @@ void DesktopEntry::run() {
 			case 'U':
 				break;
 			case 'i':
-				parsedExec += "--icon";
-				parsedExec += '\'' + icon + '\'';
+				parsedExec += "--icon '" + icon + '\'';
 				break;
 			case 'c':
 				parsedExec += name;
@@ -90,10 +80,8 @@ void DesktopEntry::run() {
 
 	std::vector<std::string_view> args = useTerminal ? TERMINAL_ARGS : SHELL_ARGS;
 	std::string_view cmd = useTerminal ? TERMINAL : SHELL;
-	args.push_back(parsedExec);
 
-	Process p(cmd, args);
-	p.exec();
+	return { cmd, args };
 }
 
 bool DesktopEntry::operator==(const DesktopEntry& other) const { return id == other.id; }
@@ -111,9 +99,9 @@ std::vector<fs::path> DesktopEntries::getEntryPaths() {
 	std::string data_dirs = getEnviroment("XDG_DATA_DIRS"sv);
 	std::vector<fs::path> out;
 	if (!data_dirs.empty()) {
-		auto pathbeg = std::begin(data_dirs);
-		auto pathend = std::begin(data_dirs);
-		while ((pathend = std::find(pathend, std::end(data_dirs), ':')) != std::end(data_dirs)) {
+		auto pathbeg = ::begin(data_dirs);
+		auto pathend = ::begin(data_dirs);
+		while ((pathend = std::find(pathend, ::end(data_dirs), ':')) != ::end(data_dirs)) {
 			out.emplace_back(pathbeg, pathend) /= "applications";
 			pathbeg = ++pathend;
 		}
@@ -123,8 +111,8 @@ std::vector<fs::path> DesktopEntries::getEntryPaths() {
 	std::vector<fs::path> userPaths = { ".local/share/applications", ".data/applications" };
 	fs::path home = getEnviroment("HOME"sv);
 	for (auto& path : userPaths) path = home / path;
-	out.insert(std::end(out), std::begin(globalPaths), std::end(globalPaths));
-	out.insert(std::end(out), std::begin(userPaths), std::end(userPaths));
+	out.insert(::end(out), ::begin(globalPaths), ::end(globalPaths));
+	out.insert(::end(out), ::begin(userPaths), ::end(userPaths));
 	return out;
 }
 
@@ -136,17 +124,17 @@ std::vector<DesktopEntry> DesktopEntries::getDesktopEntries(const std::vector<fs
 			const auto path = file.path();
 			if (!file.is_regular_file() || path.extension() != ".desktop") continue;
 			DesktopEntry entry(entryDirectory, path);
-			if (!entry.isHidden() && std::find(std::begin(out), std::end(out), entry) == std::end(out))
+			if (!entry.isHidden() && std::find(::begin(out), ::end(out), entry) == ::end(out))
 				out.emplace_back(std::move(entry));
 		}
 	}
-	std::sort(std::begin(out), std::end(out), [](const auto& a, const auto& b){ 
+	std::sort(::begin(out), ::end(out), [](const auto& a, const auto& b){
 			return a.getName() < b.getName();
 	});
 	return out;
 }
 
 DesktopEntries::DesktopEntries() : entries(getDesktopEntries(getEntryPaths())) {}
-std::vector<DesktopEntry>::const_iterator DesktopEntries::begin() const { return std::begin(entries); }
-std::vector<DesktopEntry>::const_iterator DesktopEntries::end() const { return std::end(entries); }
+std::vector<DesktopEntry>::const_iterator DesktopEntries::begin() const { return ::begin(entries); }
+std::vector<DesktopEntry>::const_iterator DesktopEntries::end() const { return ::end(entries); }
 DesktopEntry DesktopEntries::operator[](int i) const { return entries[i]; }
