@@ -49,7 +49,7 @@ bool Icon::operator!=(const Icon& other) const { return !operator==(other); }
 // IconTheme
 // ==========================================
 
-void IconTheme::findIcons(const std::vector<fs::path>& iconPaths) const {
+void IconTheme::indexIcons(const std::vector<fs::path>& iconPaths) const {
 	std::vector<std::pair<int, fs::path>> relativePaths;
 	for (const auto& iconPath : iconPaths) {
 		fs::path indexPath = iconPath / id / "index.theme";
@@ -97,10 +97,9 @@ void IconTheme::findIcons(const std::vector<fs::path>& iconPaths) const {
 	}
 }
 IconTheme::IconTheme(std::string id) : id(id) {}
-void IconTheme::addIndex(const fs::path& index) {}
 std::string_view IconTheme::getId() const { return id; }
 std::vector<Icon> IconTheme::queryIcons(std::string_view name, const std::vector<fs::path>& iconPaths) const {
-	if (icons.empty()) findIcons(iconPaths);
+	if (icons.empty()) indexIcons(iconPaths);
 	std::vector<Icon> found;
 	const auto& [ beg, end ] = icons.equal_range(Icon(name));
 	if (beg != ::end(icons))

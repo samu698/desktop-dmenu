@@ -37,10 +37,9 @@ class IconTheme {
 	std::string id;
 	mutable std::unordered_multiset<Icon> icons;
 
-	void findIcons(const std::vector<fs::path>& iconPaths) const;
+	void indexIcons(const std::vector<fs::path>& iconPaths) const;
 public:
 	IconTheme(std::string id);
-	void addIndex(const fs::path& index);
 
 	std::string_view getId() const;
 
