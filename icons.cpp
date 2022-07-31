@@ -1,5 +1,6 @@
 #include "icons.hpp"
 #include <algorithm>
+#include <filesystem>
 #include <iterator>
 #include <optional>
 
@@ -162,7 +163,15 @@ std::vector<Icon> Icons::queryIcons(std::string_view name, std::string_view pref
 	if (hicolorTheme != themes.end())
 		icons = hicolorTheme->queryIcons(name, iconPaths);
 
-	/* TODO: query /usr/share/pixmaps/ folder */;
+	if (!icons.empty()) return icons;
+
+	for (auto icon : fs::directory_iterator("/usr/share/pixmaps")) {
+		if (icon.path().stem() != name) continue;
+		if (icon.path().extension() != ".png") continue;
+		PngReader p(icon.path());
+		if (p.getWidth() != p.getHeight()) continue;
+		icons.emplace_back(name, p.getWidth(), icon.path());
+	}
 
 	return icons;
 }
