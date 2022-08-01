@@ -119,6 +119,7 @@ std::vector<fs::path> DesktopEntries::getEntryPaths() {
 std::vector<DesktopEntry> DesktopEntries::getDesktopEntries(const std::vector<fs::path> entryPaths) {
 	std::vector<DesktopEntry> out;
 	for (const auto& entryDirectory : entryPaths) {
+		if (!fs::exists(entryDirectory)) continue;
 		auto diriter = fs::recursive_directory_iterator(entryDirectory);
 		for (const auto& file : diriter) {
 			const auto path = file.path();

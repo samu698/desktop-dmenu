@@ -162,9 +162,9 @@ std::vector<Icon> Icons::queryIcons(std::string_view name, std::string_view pref
 	auto hicolorTheme = themes.find(IconTheme("hicolor"));
 	if (hicolorTheme != themes.end())
 		icons = hicolorTheme->queryIcons(name, iconPaths);
-
 	if (!icons.empty()) return icons;
 
+	if (!fs::exists("/usr/share/pixmaps")) return icons;
 	for (auto icon : fs::directory_iterator("/usr/share/pixmaps")) {
 		if (icon.path().stem() != name) continue;
 		if (icon.path().extension() != ".png") continue;
